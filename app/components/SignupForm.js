@@ -5,17 +5,25 @@ import FormInput from "./FormInput";
 import FormSubmitButton from "./FormSubmitButton";
 import { isValidEmail, isValidObjField, updateError } from "../utils/methods";
 
-const SignupForm = () => {
+import client from "../api/client";
+import axios from "axios";
+import { StackActions } from "@react-navigation/native";
+import { useLogin } from "../context/LoginProvider";
+import { signIn } from "../api/user";
+
+const SignupForm = ({ navigation }) => {
   const [userInfo, setUserInfo] = useState({
-    fullName: "",
+    fullname: "",
     email: "",
+    phone: "",
     password: "",
-    confirmPassword: "",
+    confirmpassword: "",
   });
 
   const [error, setError] = useState("");
+  const { setLoginPending, setProfile } = useLogin();
 
-  const { fullName, email, password, confirmPassword } = userInfo;
+  const { fullname, email, phone, password, confirmpassword } = userInfo;
 
   const handleOnChangeText = (value, fieldName) => {
     setUserInfo({ ...userInfo, [fieldName]: value });
@@ -26,22 +34,47 @@ const SignupForm = () => {
     if (!isValidObjField(userInfo))
       return updateError("All fields required", setError);
     // Name validity
-    if (!fullName || fullName.length < 3)
+    if (!fullname || fullname.length < 3)
       return updateError("Provide a valid Name", setError);
     // Email validity
     if (!isValidEmail(email)) return updateError("Invalid email!", setError);
-    // Check password password lenth. 8 or more characters
+    // verify phone
+    if (!phone || phone.length < 10)
+      return updateError("Provide a valid phone number", setError);
+    // Check password password length. 8 or more characters
     if (!password.trim() || password.length < 8)
       return updateError("Password is less than 8 characters!", setError);
     // Check if password is equal to confirm password
-    if (password !== confirmPassword)
+    if (password !== confirmpassword)
       return updateError("Password does not match!", setError);
 
     return true;
   };
-  const submitForm = () => {
+  const submitForm = async (value) => {
     if (isValidForm()) {
-      console.log(userInfo);
+      try {
+        setLoginPending(true);
+        const res = await client.post("/create-user", {
+          ...userInfo,
+        });
+        console.log(res.data);
+        if (res.data.success) {
+          const signInRes = await signIn(userInfo.email, userInfo.password);
+
+          if (signInRes.data.success) {
+            navigation.dispatch(
+              StackActions.replace("uploadimage", {
+                token: signInRes.data.token,
+                data: signInRes.data,
+              })
+            );
+            setProfile(signInRes.data.userInfo);
+          }
+          setLoginPending(false);
+        }
+      } catch (error) {
+        console.log(error.message);
+      }
     }
   };
 
@@ -53,8 +86,8 @@ const SignupForm = () => {
         </Text>
       ) : null}
       <FormInput
-        value={fullName}
-        onChangeText={(value) => handleOnChangeText(value, "fullName")}
+        value={fullname}
+        onChangeText={(value) => handleOnChangeText(value, "fullname")}
         label="Full Name"
         placeholder="Full Name"
       />
@@ -67,6 +100,14 @@ const SignupForm = () => {
       />
 
       <FormInput
+        value={phone}
+        onChangeText={(value) => handleOnChangeText(value, "phone")}
+        autoCapitalize="none"
+        label="Phone"
+        placeholder="phone"
+      />
+
+      <FormInput
         value={password}
         onChangeText={(value) => handleOnChangeText(value, "password")}
         autoCapitalize="none"
@@ -75,8 +116,8 @@ const SignupForm = () => {
         placeholder="********"
       />
       <FormInput
-        value={confirmPassword}
-        onChangeText={(value) => handleOnChangeText(value, "confirmPassword")}
+        value={confirmpassword}
+        onChangeText={(value) => handleOnChangeText(value, "confirmpassword")}
         autoCapitalize="none"
         secureTextEntry
         label="Confirm Password"

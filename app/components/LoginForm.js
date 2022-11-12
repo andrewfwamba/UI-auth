@@ -4,12 +4,17 @@ import FormContainer from "./FormContainer";
 import FormInput from "./FormInput";
 import FormSubmitButton from "./FormSubmitButton";
 import { isValidEmail, isValidObjField, updateError } from "../utils/methods";
+import client from "../api/client";
+import { useLogin } from "../context/LoginProvider";
+import { signIn } from "../api/user";
 
 const LoginForm = () => {
+  const { setIsLoggedIn, setProfile } = useLogin();
   const [userInfo, setUserInfo] = useState({
     email: "",
     password: "",
   });
+  const { setLoginPending } = useLogin();
   const [error, setError] = useState("");
   const { email, password } = userInfo;
 
@@ -29,10 +34,23 @@ const LoginForm = () => {
     return true;
   };
 
-  const submitForm = () => {
+  const submitForm = async () => {
+    setLoginPending(true);
+
     if (isValidForm()) {
-      console.log(userInfo);
+      try {
+        const res = await signIn(userInfo.email, userInfo.password);
+        console.log(res.data);
+        if (res.data.success) {
+          setUserInfo({ email: "", password: "" });
+          setProfile(res.data.userInfo);
+          setIsLoggedIn(true);
+        }
+      } catch (error) {
+        console.log(error.message);
+      }
     }
+    setLoginPending(false);
   };
 
   return (
